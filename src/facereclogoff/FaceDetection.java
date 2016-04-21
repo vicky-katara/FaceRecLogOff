@@ -9,7 +9,6 @@ import java.awt.Graphics;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
-import java.io.File;
 import javax.imageio.ImageIO;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
@@ -18,12 +17,9 @@ import org.opencv.core.MatOfRect;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
-import org.opencv.core.Size;
 import org.opencv.highgui.Highgui;
 import org.opencv.highgui.VideoCapture;
-import org.opencv.imgproc.Imgproc;
 import org.opencv.objdetect.CascadeClassifier;
-import java.util.Arrays;
 
 /**
  *
@@ -36,8 +32,15 @@ public class FaceDetection extends javax.swing.JFrame {
     VideoCapture webSource = null;
     Mat frame = new Mat();
     MatOfByte mem = new MatOfByte();
-    CascadeClassifier faceDetector = new CascadeClassifier(FaceDetection.class.getResource("haarcascade_frontalface_alt.xml").getPath().substring(1).replace("%20", " "));
-    MatOfRect faceDetections = new MatOfRect();
+    MatOfRect frontalFaceMatRect = new MatOfRect();
+    MatOfRect eyeMatRect = new MatOfRect();
+    MatOfRect haarProfileFaceMatRect = new MatOfRect();
+    MatOfRect lbpcascadeProfilefaceMatRect = new MatOfRect();
+    
+    CascadeClassifier frontalFaceDetector = new CascadeClassifier(FaceDetection.class.getResource("haarcascade_frontalface_alt.xml").getPath().substring(1).replace("%20", " "));
+    CascadeClassifier haarcascadeEyeDetector = new CascadeClassifier(FaceDetection.class.getResource("haarcascade_eye.xml").getPath().substring(1).replace("%20", " "));
+    CascadeClassifier haarcascadeProfilefaceDetector = new CascadeClassifier(FaceDetection.class.getResource("haarcascade_profileface.xml").getPath().substring(1).replace("%20", " "));
+    CascadeClassifier lbpcascadeProfilefaceDetector = new CascadeClassifier(FaceDetection.class.getResource("lbpcascade_profileface.xml").getPath().substring(1).replace("%20", " "));
     
     class DaemonThread implements Runnable {
 
@@ -51,13 +54,20 @@ public class FaceDetection extends javax.swing.JFrame {
                         try {
                             webSource.retrieve(frame);
                             Graphics g = jPanel1.getGraphics();
-                            faceDetector.detectMultiScale(frame, faceDetections);
-                            //System.out.println(Arrays.toString(faceDetections.toArray()));
-                            for (Rect rect : faceDetections.toArray()) {
-                               System.out.println("Face Detected at "+rect.x+", "+rect.y);
-                                Core.rectangle(frame, new Point(rect.x, rect.y), new Point(rect.x + rect.width, rect.y + rect.height),
-                                        new Scalar(255, 0 ,0));
-                            }
+                            //
+//                            frontalFaceDetector.detectMultiScale(frame, faceDetections);
+//                            //System.out.println(Arrays.toString(faceDetections.toArray()));
+//                            for (Rect rect : faceDetections.toArray()) {
+//                               System.out.println("Frontal Face Detected at "+rect.x+", "+rect.y);
+//                                Core.rectangle(frame, new Point(rect.x, rect.y), new Point(rect.x + rect.width, rect.y + rect.height),
+//                                        new Scalar(255, 0 ,0));
+//                            }
+                            //
+                            detectUsingClassifier(frontalFaceDetector, frame, frontalFaceMatRect, 0);
+                            detectUsingClassifier(haarcascadeEyeDetector, frame, eyeMatRect, 1);
+                            detectUsingClassifier(haarcascadeProfilefaceDetector, frame, haarProfileFaceMatRect, 2);
+                            detectUsingClassifier(lbpcascadeProfilefaceDetector, frame, lbpcascadeProfilefaceMatRect, 3);
+                            //
                             Highgui.imencode(".bmp", frame, mem);
                             Image im = ImageIO.read(new ByteArrayInputStream(mem.toArray()));
                             BufferedImage buff = (BufferedImage) im;
@@ -76,6 +86,45 @@ public class FaceDetection extends javax.swing.JFrame {
         }
     }
     
+    void detectUsingClassifier(CascadeClassifier classifier, Mat frame, MatOfRect faceDetections, int classifierNum ) {
+        Scalar scalar = getScalar(classifierNum);
+        classifier.detectMultiScale(frame, faceDetections);
+        //System.out.println(Arrays.toString(faceDetections.toArray()));
+        for (Rect rect : faceDetections.toArray()) {
+           System.out.println(classifierName(classifierNum)+" detected at "+rect.x+", "+rect.y);
+            Core.rectangle(frame, new Point(rect.x, rect.y), new Point(rect.x + rect.width, rect.y + rect.height), scalar);
+        }
+    }
+    
+    Scalar getScalar(int classifierNum){
+        switch(classifierNum){
+            case 0: // face
+                return new Scalar(255, 0, 0);
+            case 1: // eye
+                return new Scalar(0, 255, 0);
+            case 2: // haarProfile
+                return new Scalar(0, 0, 255);
+            case 3: // lbpProfile
+                return new Scalar(255, 255, 0);
+            default:
+                return null;
+        }
+    }
+    
+    String classifierName(int classifierNum){
+        switch(classifierNum){
+            case 0: // face
+                return "Haar Frontal Face";
+            case 1: // eye
+                return "Haar Eye";
+            case 2: // haarProfile
+                return "Haar Profile Face";
+            case 3: // lbpProfile
+                return "LBP Frontal Face";
+            default:
+                return null;
+        }
+    }  
     
     /**
      * Creates new form FaceDetection
@@ -180,7 +229,7 @@ public class FaceDetection extends javax.swing.JFrame {
      */
     public static void main(String args[]) {
         System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
-        System.out.println("Working Directory = " + System.getProperty("user.dir")+"\n classifier: "+FaceDetection.class.getResource("haarcascade_frontalface_alt.xml").getPath().substring(1).replace("%20", " "));
+//        System.out.println("Working Directory = " + System.getProperty("user.dir")+"\n classifier: "+FaceDetection.class.getResource("haarcascade_frontalface_alt.xml").getPath().substring(1).replace("%20", " "));
         /* Set the Nimbus look and feel */
         //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
         /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
