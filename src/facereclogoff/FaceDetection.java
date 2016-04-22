@@ -63,11 +63,19 @@ public class FaceDetection extends javax.swing.JFrame {
 //                                        new Scalar(255, 0 ,0));
 //                            }
                             //
-                            detectUsingClassifier(frontalFaceDetector, frame, frontalFaceMatRect, 0);
-                            detectUsingClassifier(haarcascadeEyeDetector, frame, eyeMatRect, 1);
-                            detectUsingClassifier(haarcascadeProfilefaceDetector, frame, haarProfileFaceMatRect, 2);
-                            detectUsingClassifier(lbpcascadeProfilefaceDetector, frame, lbpcascadeProfilefaceMatRect, 3);
-                            //
+                            int front_sum = 0;
+                            int side_sum = 0;
+                            int eye_sum = 0;
+                            front_sum+=detectUsingClassifier(frontalFaceDetector, frame, frontalFaceMatRect, 0);
+                            eye_sum+=detectUsingClassifier(haarcascadeEyeDetector, frame, eyeMatRect, 1);
+                            side_sum+=detectUsingClassifier(haarcascadeProfilefaceDetector, frame, haarProfileFaceMatRect, 2);
+                            //sum+=detectUsingClassifier(lbpcascadeProfilefaceDetector, frame, lbpcascadeProfilefaceMatRect, 3);
+                            if(front_sum==0 && eye_sum==0 && side_sum==0){
+                                Core.putText(frame, "No One Present Locking Now!!", new Point(5, frame.height()/2), Core.FONT_HERSHEY_DUPLEX, 1, new Scalar(255, 0, 255), 2);
+                            } else if(front_sum>0 && side_sum > 0){
+                                Core.putText(frame, "Attacker Present Locking Now!!", new Point(5, frame.height()/2), Core.FONT_HERSHEY_DUPLEX, 1, new Scalar(255, 0, 255), 2);
+                            }
+        //
                             Highgui.imencode(".bmp", frame, mem);
                             Image im = ImageIO.read(new ByteArrayInputStream(mem.toArray()));
                             BufferedImage buff = (BufferedImage) im;
@@ -86,13 +94,42 @@ public class FaceDetection extends javax.swing.JFrame {
         }
     }
     
-    void detectUsingClassifier(CascadeClassifier classifier, Mat frame, MatOfRect faceDetections, int classifierNum ) {
+    int detectUsingClassifier(CascadeClassifier classifier, Mat frame, MatOfRect faceDetections, int classifierNum ) {
+        int sum = 0;
         Scalar scalar = getScalar(classifierNum);
         classifier.detectMultiScale(frame, faceDetections);
         //System.out.println(Arrays.toString(faceDetections.toArray()));
-        for (Rect rect : faceDetections.toArray()) {
-           System.out.println(classifierName(classifierNum)+" detected at "+rect.x+", "+rect.y);
-            Core.rectangle(frame, new Point(rect.x, rect.y), new Point(rect.x + rect.width, rect.y + rect.height), scalar);
+        Rect[] rectArr = faceDetections.toArray();
+        if(isViolating(classifierNum, rectArr))
+            Core.putText(frame, "Locking Now!!"+classifierName(classifierNum), new Point(10, frame.height()/2), Core.FONT_HERSHEY_SIMPLEX, 2, new Scalar(255, 0, 255), 5);
+        for (Rect rect : rectArr) {
+            sum++;
+//           System.out.println(classifierName(classifierNum)+" detected at "+rect.x+", "+rect.y);
+           Core.rectangle(frame, new Point(rect.x, rect.y), new Point(rect.x + rect.width, rect.y + rect.height), scalar);
+        }
+        return sum;
+    }
+    
+    boolean isViolating(int classifierNum, Rect[] rectArr){
+        switch(classifierNum){
+            case 0: // face
+                if(rectArr.length>2)
+                    return true;
+                else return false;
+            case 1: // eye
+                if(rectArr.length>2)
+                    return true;
+                else return false;
+            case 2: // haarProfile
+                if(rectArr.length>1)
+                    return true;
+                else return false;
+            case 3: // lbpProfile
+                if(rectArr.length>1)
+                    return true;
+                else return false;
+            default:
+                return false;
         }
     }
     
@@ -114,13 +151,13 @@ public class FaceDetection extends javax.swing.JFrame {
     String classifierName(int classifierNum){
         switch(classifierNum){
             case 0: // face
-                return "Haar Frontal Face";
+                return "Front";
             case 1: // eye
-                return "Haar Eye";
+                return "Eye";
             case 2: // haarProfile
-                return "Haar Profile Face";
+                return "Profile Face";
             case 3: // lbpProfile
-                return "LBP Frontal Face";
+                return "LProfile Face";
             default:
                 return null;
         }
